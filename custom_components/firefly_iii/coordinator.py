@@ -1,0 +1,190 @@
+"""Data Update Coordinator for Firefly III integration."""
+
+import asyncio
+from dataclasses import dataclass
+from datetime import timedelta
+import logging
+from typing import override
+
+from aiohttp import CookieJar
+from pyfirefly import (
+    Firefly,
+    FireflyAuthenticationError,
+    FireflyConnectionError,
+    FireflyError,
+    FireflyTimeoutError,
+)
+from pyfirefly.models import (
+    Account,
+    Bill,
+    Budget,
+    BudgetLimitAttributes,
+    Category,
+    Currency,
+)
+
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import CONF_API_KEY, CONF_URL, CONF_VERIFY_SSL
+from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.aiohttp_client import async_create_clientsession
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
+
+from .const import DOMAIN
+
+_LOGGER = logging.getLogger(__name__)
+
+type FireflyConfigEntry = ConfigEntry[FireflyDataUpdateCoordinator]
+
+DEFAULT_SCAN_INTERVAL = timedelta(minutes=5)
+
+
+@dataclass
+class FireflyCoordinatorData:
+    """Data structure for Firefly III coordinator data."""
+
+    accounts: dict[str, Account]
+    categories: list[Category]
+    category_details: dict[str, Category]
+    budgets: dict[str, Budget]
+    budget_limits: dict[str, list[BudgetLimitAttributes]]
+    bills: dict[str, Bill]
+    primary_currency: Currency
+
+
+class FireflyDataUpdateCoordinator(DataUpdateCoordinator[FireflyCoordinatorData]):
+    """Coordinator to manage data updates for Firefly III integration."""
+
+    config_entry: FireflyConfigEntry
+
+    def __init__(self, hass: HomeAssistant, config_entry: FireflyConfigEntry) -> None:
+        """Initialize the coordinator."""
+        super().__init__(
+            hass,
+            _LOGGER,
+            config_entry=config_entry,
+            name=DOMAIN,
+            update_interval=DEFAULT_SCAN_INTERVAL,
+        )
+        self.firefly = Firefly(
+            api_url=self.config_entry.data[CONF_URL],
+            api_key=self.config_entry.data[CONF_API_KEY],
+            session=async_create_clientsession(
+                self.hass,
+                self.config_entry.data[CONF_VERIFY_SSL],
+                cookie_jar=CookieJar(unsafe=True),
+            ),
+        )
+
+    @override
+    async def _async_setup(self) -> None:
+        """Set up the coordinator."""
+        try:
+            await self.firefly.get_about()
+        except FireflyAuthenticationError as err:
+            raise ConfigEntryAuthFailed(
+                translation_domain=DOMAIN,
+                translation_key="invalid_auth",
+            ) from err
+        except FireflyConnectionError as err:
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="cannot_connect",
+            ) from err
+        except FireflyTimeoutError as err:
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="timeout_connect",
+            ) from err
+        except FireflyError as err:
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="unknown_error",
+                translation_placeholders={"error": repr(err)},
+            ) from err
+
+    @override
+    async def _async_update_data(self) -> FireflyCoordinatorData:
+        """Fetch data from Firefly III API."""
+        now = dt_util.now()
+        start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end_date = now
+
+        try:
+            (
+                accounts,
+                categories,
+                primary_currency,
+                budgets,
+                bills,
+            ) = await asyncio.gather(
+                self.firefly.get_accounts(),
+                self.firefly.get_categories(),
+                self.firefly.get_currency_primary(),
+                self.firefly.get_budgets(start=start_date, end=end_date),
+                self.firefly.get_bills(start=start_date, end=end_date),
+            )
+
+            category_details_list, budget_limits_list = await asyncio.gather(
+                asyncio.gather(
+                    *(
+                        self.firefly.get_category(
+                            category_id=int(category.id),
+                            start=start_date,
+                            end=end_date,
+                        )
+                        for category in categories
+                    )
+                ),
+                asyncio.gather(
+                    *(
+                        self.firefly.get_budget_limits(
+                            budget_id=int(budget.id),
+                            start=start_date,
+                            end=end_date,
+                        )
+                        for budget in budgets
+                    )
+                ),
+            )
+        except FireflyAuthenticationError as err:
+            raise ConfigEntryAuthFailed(
+                translation_domain=DOMAIN,
+                translation_key="invalid_auth",
+            ) from err
+        except FireflyConnectionError as err:
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="cannot_connect",
+            ) from err
+        except FireflyTimeoutError as err:
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="timeout_connect",
+            ) from err
+        except FireflyError as err:
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="unknown_error",
+                translation_placeholders={"error": repr(err)},
+            ) from err
+
+        return FireflyCoordinatorData(
+            accounts={
+                account.id: account
+                for account in accounts
+                if account.attributes.type == "asset"
+            },
+            categories=categories,
+            category_details={
+                category.id: category for category in category_details_list
+            },
+            budgets={budget.id: budget for budget in budgets},
+            budget_limits={
+                budget.id: limits
+                for budget, limits in zip(budgets, budget_limits_list, strict=True)
+            },
+            bills={bill.id: bill for bill in bills},
+            primary_currency=primary_currency,
+        )

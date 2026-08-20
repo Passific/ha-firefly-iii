@@ -1,0 +1,101 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "L'appareil est déjà configuré",
+      "reauth_successful": "La ré-authentification a réussi",
+      "reconfigure_successful": "La reconfiguration a réussi"
+    },
+    "error": {
+      "cannot_connect": "Impossible de se connecter",
+      "invalid_auth": "Authentification invalide",
+      "timeout_connect": "Délai de connexion dépassé",
+      "unknown": "Erreur inattendue"
+    },
+    "step": {
+      "reauth_confirm": {
+        "data": {
+          "api_key": "Jeton d'accès"
+        },
+        "data_description": {
+          "api_key": "Le jeton d'accès pour l'authentification avec Firefly III"
+        },
+        "description": "Le jeton d'accès de votre instance Firefly III est invalide et doit être mis à jour. Allez dans **Options > Accès distant et jetons**. Créez un nouveau **jeton d'accès personnel** et copiez-le (il ne s'affichera qu'une seule fois)."
+      },
+      "reconfigure": {
+        "data": {
+          "api_key": "Jeton d'accès",
+          "url": "URL",
+          "verify_ssl": "Vérifier le certificat SSL"
+        },
+        "data_description": {
+          "api_key": "Le jeton d'accès pour l'authentification avec Firefly III",
+          "url": "URL",
+          "verify_ssl": "Vérifier le certificat SSL de l'instance Firefly III"
+        },
+        "description": "Utilisez le formulaire suivant pour reconfigurer votre instance Firefly III.",
+        "title": "Reconfigurer l'intégration Firefly III"
+      },
+      "user": {
+        "data": {
+          "api_key": "Jeton d'accès",
+          "url": "URL",
+          "verify_ssl": "Vérifier le certificat SSL"
+        },
+        "data_description": {
+          "api_key": "Le jeton d'accès pour l'authentification avec Firefly III",
+          "url": "URL",
+          "verify_ssl": "Vérifier le certificat SSL de l'instance Firefly III"
+        },
+        "description": "Vous pouvez créer un jeton d'accès dans l'interface Firefly III. Allez dans **Options > Accès distant et jetons**. Créez un nouveau **jeton d'accès personnel** et copiez-le (il ne s'affichera qu'une seule fois)."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "account_balance": {
+        "name": "{name}"
+      },
+      "budget": {
+        "name": "{name} dépensé"
+      },
+      "budget_limit": {
+        "name": "{name} limite"
+      },
+      "budget_remaining": {
+        "name": "{name} restant"
+      },
+      "subscription_amount": {
+        "name": "{name} montant prévu"
+      },
+      "subscription_next_expected": {
+        "name": "{name} prochain paiement"
+      },
+      "subscription_last_paid": {
+        "name": "{name} dernier paiement"
+      },
+      "subscription_total_expected": {
+        "name": "Total prévu"
+      },
+      "subscription_already_paid": {
+        "name": "Déjà payé"
+      },
+      "category": {
+        "name": "{name}"
+      }
+    }
+  },
+  "exceptions": {
+    "cannot_connect": {
+      "message": "Une erreur s'est produite lors de la connexion à l'instance Firefly III : {error}"
+    },
+    "invalid_auth": {
+      "message": "Une erreur s'est produite lors de l'authentification : {error}"
+    },
+    "timeout_connect": {
+      "message": "Un délai d'attente s'est produit lors de la connexion à l'instance Firefly III : {error}"
+    },
+    "unknown_error": {
+      "message": "Une erreur inconnue s'est produite lors de la communication avec l'instance Firefly III : {error}"
+    }
+  }
+}

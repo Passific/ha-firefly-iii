@@ -1,0 +1,192 @@
+"""Base entity for Firefly III integration."""
+
+from typing import override
+
+from pyfirefly.models import Account, Bill, Budget, Category
+from yarl import URL
+
+from homeassistant.const import CONF_URL
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from .const import DOMAIN, MANUFACTURER, NAME
+from .coordinator import FireflyDataUpdateCoordinator
+
+
+class FireflyBaseEntity(CoordinatorEntity[FireflyDataUpdateCoordinator]):
+    """Base class for Firefly III entity."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: FireflyDataUpdateCoordinator,
+    ) -> None:
+        """Initialize a Firefly entity."""
+        super().__init__(coordinator)
+        self._attr_device_info = DeviceInfo(
+            entry_type=DeviceEntryType.SERVICE,
+            manufacturer=MANUFACTURER,
+            name=NAME,
+            configuration_url=URL(coordinator.config_entry.data[CONF_URL]),
+            identifiers={(DOMAIN, f"{coordinator.config_entry.entry_id}_service")},
+        )
+
+
+class FireflyAccountBaseEntity(FireflyBaseEntity):
+    """Base class for Firefly III account entity."""
+
+    def __init__(
+        self,
+        coordinator: FireflyDataUpdateCoordinator,
+        account: Account,
+        key: str,
+    ) -> None:
+        """Initialize a Firefly account entity."""
+        super().__init__(coordinator)
+        self._account_id = account.id
+        self._attr_device_info = DeviceInfo(
+            entry_type=DeviceEntryType.SERVICE,
+            manufacturer=MANUFACTURER,
+            name="Accounts",
+            configuration_url=str(URL(coordinator.config_entry.data[CONF_URL]) / "accounts"),
+            identifiers={
+                (DOMAIN, f"{coordinator.config_entry.entry_id}_accounts")
+            },
+        )
+        self._attr_unique_id = (
+            f"{coordinator.config_entry.entry_id}_account_{account.id}_{key}"
+        )
+        self._attr_translation_placeholders = {
+            "name": account.attributes.name or ""
+        }
+        self.entity_id = f"sensor.account_{account.id}_{key}"
+
+    @property
+    def _account(self) -> Account:
+        return self.coordinator.data.accounts[self._account_id]
+
+    @property
+    @override
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return super().available and self._account_id in self.coordinator.data.accounts
+
+
+class FireflyCategoryBaseEntity(FireflyBaseEntity):
+    """Base class for Firefly III category entity."""
+
+    def __init__(
+        self,
+        coordinator: FireflyDataUpdateCoordinator,
+        category: Category,
+        key: str,
+    ) -> None:
+        """Initialize a Firefly category entity."""
+        super().__init__(coordinator)
+        self._category_id = category.id
+        self._attr_device_info = DeviceInfo(
+            entry_type=DeviceEntryType.SERVICE,
+            manufacturer=MANUFACTURER,
+            name="Categories",
+            configuration_url=str(URL(coordinator.config_entry.data[CONF_URL]) / "categories"),
+            identifiers={
+                (DOMAIN, f"{coordinator.config_entry.entry_id}_categories")
+            },
+        )
+        self._attr_unique_id = (
+            f"{coordinator.config_entry.entry_id}_category_{category.id}_{key}"
+        )
+        self._attr_translation_placeholders = {
+            "name": category.attributes.name or ""
+        }
+        self.entity_id = f"sensor.category_{category.id}_{key}"
+
+    @property
+    def _category(self) -> Category:
+        return self.coordinator.data.category_details[self._category_id]
+
+    @property
+    @override
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return (
+            super().available
+            and self._category_id in self.coordinator.data.category_details
+        )
+
+
+class FireflyBudgetBaseEntity(FireflyBaseEntity):
+    """Base class for Firefly III budget entity."""
+
+    def __init__(
+        self,
+        coordinator: FireflyDataUpdateCoordinator,
+        budget: Budget,
+        key: str,
+    ) -> None:
+        """Initialize a Firefly budget entity."""
+        super().__init__(coordinator)
+        self._budget_id = budget.id
+        self._attr_device_info = DeviceInfo(
+            entry_type=DeviceEntryType.SERVICE,
+            manufacturer=MANUFACTURER,
+            name="Budgets",
+            configuration_url=str(URL(coordinator.config_entry.data[CONF_URL]) / "budgets"),
+            identifiers={
+                (DOMAIN, f"{coordinator.config_entry.entry_id}_budgets")
+            },
+        )
+        self._attr_unique_id = (
+            f"{coordinator.config_entry.entry_id}_budget_{budget.id}_{key}"
+        )
+        self._attr_translation_placeholders = {"name": budget.attributes.name or ""}
+        self.entity_id = f"sensor.budget_{budget.id}_{key}"
+
+    @property
+    def _budget(self) -> Budget:
+        return self.coordinator.data.budgets[self._budget_id]
+
+    @property
+    @override
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return super().available and self._budget_id in self.coordinator.data.budgets
+
+
+class FireflyBillBaseEntity(FireflyBaseEntity):
+    """Base class for Firefly III subscription (bill) entity."""
+
+    def __init__(
+        self,
+        coordinator: FireflyDataUpdateCoordinator,
+        bill: Bill,
+        key: str,
+    ) -> None:
+        """Initialize a Firefly subscription entity."""
+        super().__init__(coordinator)
+        self._bill_id = bill.id
+        self._attr_device_info = DeviceInfo(
+            entry_type=DeviceEntryType.SERVICE,
+            manufacturer=MANUFACTURER,
+            name="Subscriptions",
+            configuration_url=str(URL(coordinator.config_entry.data[CONF_URL]) / "subscriptions"),
+            identifiers={
+                (DOMAIN, f"{coordinator.config_entry.entry_id}_subscriptions")
+            },
+        )
+        self._attr_unique_id = (
+            f"{coordinator.config_entry.entry_id}_bill_{bill.id}_{key}"
+        )
+        self._attr_translation_placeholders = {"name": bill.attributes.name or ""}
+        self.entity_id = f"sensor.bill_{bill.id}_{key}"
+
+    @property
+    def _bill(self) -> Bill:
+        return self.coordinator.data.bills[self._bill_id]
+
+    @property
+    @override
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return super().available and self._bill_id in self.coordinator.data.bills
