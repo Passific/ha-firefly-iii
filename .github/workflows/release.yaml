@@ -9,6 +9,8 @@ jobs:
   release:
     name: Set version in manifest
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Check out the repository
         uses: actions/checkout@v5
