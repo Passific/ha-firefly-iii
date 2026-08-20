@@ -14,10 +14,12 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Set version in manifest
-        uses: home-assistant/actions/helpers/version-bump@master
-        with:
-          path: ./custom_components/firefly_iii/manifest.json
-          version: ${{ github.event.release.tag_name }}
+        run: |
+          version="${{ github.event.release.tag_name }}"
+          version="${version#v}"
+          jq --arg version "$version" '.version = $version' \
+            custom_components/firefly_iii/manifest.json > manifest.json.tmp
+          mv manifest.json.tmp custom_components/firefly_iii/manifest.json
 
       - name: Zip the integration directory
         run: |
