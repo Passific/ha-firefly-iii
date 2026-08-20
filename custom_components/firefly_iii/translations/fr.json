@@ -86,13 +86,13 @@
   },
   "exceptions": {
     "cannot_connect": {
-      "message": "Une erreur s'est produite lors de la connexion à l'instance Firefly III : {error}"
+      "message": "Une erreur s'est produite lors de la connexion à l'instance Firefly III"
     },
     "invalid_auth": {
-      "message": "Une erreur s'est produite lors de l'authentification : {error}"
+      "message": "Une erreur s'est produite lors de l'authentification"
     },
     "timeout_connect": {
-      "message": "Un délai d'attente s'est produit lors de la connexion à l'instance Firefly III : {error}"
+      "message": "Un délai d'attente s'est produit lors de la connexion à l'instance Firefly III"
     },
     "unknown_error": {
       "message": "Une erreur inconnue s'est produite lors de la communication avec l'instance Firefly III : {error}"

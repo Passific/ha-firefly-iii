@@ -1,0 +1,30 @@
+name: Release
+
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  release:
+    name: Set version in manifest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set version in manifest
+        uses: home-assistant/actions/helpers/version-bump@master
+        with:
+          path: ./custom_components/firefly_iii/manifest.json
+          version: ${{ github.event.release.tag_name }}
+
+      - name: Zip the integration directory
+        run: |
+          cd custom_components/firefly_iii
+          zip -r firefly_iii.zip ./
+
+      - name: Upload zip to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: custom_components/firefly_iii/firefly_iii.zip

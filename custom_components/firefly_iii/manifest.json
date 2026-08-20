@@ -1,11 +1,13 @@
 {
   "domain": "firefly_iii",
   "name": "Firefly III",
-  "codeowners": ["@erwindouna"],
+  "codeowners": ["@Passific"],
   "config_flow": true,
-  "documentation": "https://www.home-assistant.io/integrations/firefly_iii",
+  "documentation": "https://github.com/Passific/ha-firefly-iii",
   "integration_type": "service",
   "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/Passific/ha-firefly-iii/issues",
   "quality_scale": "bronze",
-  "requirements": ["pyfirefly==0.1.12"]
+  "requirements": ["pyfirefly==0.1.12"],
+  "version": "0.1.0"
 }
