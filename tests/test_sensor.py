@@ -113,4 +113,4 @@ async def test_dynamic_new_account_added(
     )
     state = hass.states.get(new_account_entity_id)
     assert state is not None
-    assert state.state == "42.0"
+    assert state.state == "42.00"
