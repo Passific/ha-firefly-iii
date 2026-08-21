@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 
 from pyfirefly import FireflyConnectionError
 from pyfirefly.models import Account
+import pytest
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_fire_time_changed,
@@ -31,6 +32,7 @@ def _find_entity_id(
     raise AssertionError(f"No entity found with unique_id suffix {unique_id_suffix!r}")
 
 
+@pytest.mark.usefixtures("mock_firefly_client")
 async def test_all_entities_created(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
@@ -54,6 +56,7 @@ async def test_all_entities_created(
     assert state.state == "123.45"
 
 
+@pytest.mark.usefixtures("mock_firefly_client")
 async def test_entities_are_grouped_by_firefly_object(
     hass: HomeAssistant,
     mock_config_entry: MockConfigEntry,
