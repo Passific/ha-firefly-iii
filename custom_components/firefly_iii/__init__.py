@@ -4,10 +4,12 @@ from collections.abc import Callable
 from functools import partial
 from typing import Any
 
-from homeassistant.const import Platform
+from homeassistant.const import CONF_URL, Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers.device_registry import DeviceEntryType
 
+from .const import DOMAIN, MANUFACTURER
 from .coordinator import FireflyConfigEntry, FireflyDataUpdateCoordinator
 
 _PLATFORMS: list[Platform] = [Platform.SENSOR]
@@ -97,6 +99,48 @@ def _async_remove_orphaned_devices(hass: HomeAssistant, entry_id: str) -> None:
         device_registry.async_remove_device(device_entry.id)
 
 
+@callback
+def _async_migrate_entity_devices(
+    hass: HomeAssistant, entry: FireflyConfigEntry
+) -> None:
+    """Move existing entities from legacy per-entity devices to group devices."""
+    device_registry = dr.async_get(hass)
+    entity_registry = er.async_get(hass)
+    group_devices = {
+        "account": ("Accounts", "accounts"),
+        "category": ("Categories", "categories"),
+        "budget": ("Budgets", "budgets"),
+        "bill": ("Subscriptions", "subscriptions"),
+    }
+    group_device_ids: dict[str, str] = {}
+
+    for group, (name, identifier) in group_devices.items():
+        device = device_registry.async_get_or_create(
+            config_entry_id=entry.entry_id,
+            configuration_url=entry.data[CONF_URL],
+            default_name=name,
+            entry_type=DeviceEntryType.SERVICE,
+            identifiers={(DOMAIN, f"{entry.entry_id}_{identifier}")},
+            manufacturer=MANUFACTURER,
+        )
+        group_device_ids[group] = device.id
+
+    for entity_entry in er.async_entries_for_config_entry(
+        entity_registry, entry.entry_id
+    ):
+        unique_id = entity_entry.unique_id
+        group = next(
+            (group for group in group_devices if f"_{group}_" in unique_id),
+            None,
+        )
+        if group is None or entity_entry.device_id == group_device_ids[group]:
+            continue
+        entity_registry.async_update_entity(
+            entity_entry.entity_id,
+            device_id=group_device_ids[group],
+        )
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: FireflyConfigEntry) -> bool:
     """Set up Firefly III from a config entry."""
 
@@ -109,6 +153,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: FireflyConfigEntry) -> b
     await coordinator.async_config_entry_first_refresh()
 
     entry.runtime_data = coordinator
+    _async_migrate_entity_devices(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, _PLATFORMS)
     _async_remove_orphaned_devices(hass, entry.entry_id)
 
