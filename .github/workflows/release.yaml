@@ -25,10 +25,10 @@ jobs:
 
       - name: Zip the integration directory
         run: |
-          cd custom_components/firefly_iii
-          zip -r firefly_iii.zip ./
+          cd custom_components
+          zip -r ../firefly_iii.zip firefly_iii/
 
       - name: Upload zip to release
         uses: softprops/action-gh-release@v2
         with:
-          files: custom_components/firefly_iii/firefly_iii.zip
+          files: firefly_iii.zip
