@@ -84,18 +84,21 @@ async def test_entities_are_grouped_by_firefly_object(
         assert entity_entry is not None
         assert entity_entry.device_id == device.id
 
-    service_device = device_registry.async_get_device(
-        identifiers={(DOMAIN, f"{mock_config_entry.entry_id}_service")}
+    subscriptions_device = device_registry.async_get_device(
+        identifiers={(DOMAIN, f"{mock_config_entry.entry_id}_subscriptions")}
     )
-    assert service_device is not None
-    aggregate_entities = [
-        entity
-        for entity in er.async_entries_for_config_entry(
-            entity_registry, mock_config_entry.entry_id
+    assert subscriptions_device is not None
+    aggregate_suffixes = (
+        "_subscriptions_total_expected",
+        "_subscriptions_already_paid",
+    )
+    for unique_id_suffix in aggregate_suffixes:
+        entity_id = _find_entity_id(
+            entity_registry, mock_config_entry.entry_id, unique_id_suffix
         )
-        if entity.device_id == service_device.id
-    ]
-    assert len(aggregate_entities) == 2
+        entity_entry = entity_registry.async_get(entity_id)
+        assert entity_entry is not None
+        assert entity_entry.device_id == subscriptions_device.id
 
 
 async def test_refresh_exceptions(
