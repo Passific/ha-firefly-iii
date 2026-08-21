@@ -129,10 +129,24 @@ def _async_migrate_entity_devices(
         entity_registry, entry.entry_id
     ):
         unique_id = entity_entry.unique_id
-        group = next(
-            (group for group in group_devices if f"_{group}_" in unique_id),
-            None,
-        )
+        entity_id = entity_entry.entity_id
+        if (
+            "_subscriptions_" in unique_id
+            or entity_id.startswith(("sensor.subscriptions_", "sensor.bill_"))
+        ):
+            group = "bill"
+        else:
+            group = None
+            for candidate, entity_prefix in (
+                ("account", ("sensor.accounts_", "sensor.account_")),
+                ("category", ("sensor.categories_", "sensor.category_")),
+                ("budget", ("sensor.budgets_", "sensor.budget_")),
+            ):
+                if f"_{candidate}_" in unique_id or entity_id.startswith(
+                    entity_prefix
+                ):
+                    group = candidate
+                    break
         if group is None or entity_entry.device_id == group_device_ids[group]:
             continue
         entity_registry.async_update_entity(
@@ -155,6 +169,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: FireflyConfigEntry) -> b
     entry.runtime_data = coordinator
     _async_migrate_entity_devices(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, _PLATFORMS)
+    _async_migrate_entity_devices(hass, entry)
     _async_remove_orphaned_devices(hass, entry.entry_id)
 
     return True
