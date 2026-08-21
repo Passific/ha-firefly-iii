@@ -7,7 +7,7 @@
   "integration_type": "service",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/Passific/ha-firefly-iii/issues",
-  "quality_scale": "bronze",
+  "quality_scale": "gold",
   "requirements": ["pyfirefly==0.1.12"],
   "version": "0.1.0"
 }

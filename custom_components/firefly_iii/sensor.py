@@ -13,7 +13,7 @@ from homeassistant.components.sensor import (
     StateType,
 )
 from homeassistant.const import CONF_URL
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import dt as dt_util
@@ -55,50 +55,88 @@ async def async_setup_entry(
 ) -> None:
     """Set up Firefly III sensors."""
     coordinator = entry.runtime_data
-    entities: list[SensorEntity] = []
 
-    entities.extend(
-        FireflyAccountBalanceSensor(coordinator, account, ACCOUNT_BALANCE)
-        for account in coordinator.data.accounts.values()
-    )
+    known_account_ids: set[str] = set()
+    known_category_ids: set[str] = set()
+    known_budget_ids: set[str] = set()
+    known_bill_ids: set[str] = set()
 
-    entities.extend(
-        FireflyCategorySensor(coordinator, category, CATEGORY)
-        for category in coordinator.data.category_details.values()
-    )
+    @callback
+    def _async_add_new_entities() -> None:
+        """Add entities for accounts/categories/budgets/bills seen for the first time."""
+        entities: list[SensorEntity] = []
 
-    for budget in coordinator.data.budgets.values():
-        entities.append(FireflyBudgetSpentSensor(coordinator, budget, BUDGET))
-        entities.append(
-            FireflyBudgetLimitSensor(coordinator, budget, BUDGET_LIMIT)
-        )
-        entities.append(
-            FireflyBudgetRemainingSensor(coordinator, budget, BUDGET_REMAINING)
-        )
-
-    for bill in coordinator.data.bills.values():
-        entities.append(
-            FireflySubscriptionAmountSensor(coordinator, bill, SUBSCRIPTION_AMOUNT)
-        )
-        entities.append(
-            FireflySubscriptionNextExpectedSensor(
-                coordinator, bill, SUBSCRIPTION_NEXT_EXPECTED
+        new_accounts = [
+            account
+            for account in coordinator.data.accounts.values()
+            if account.id not in known_account_ids
+        ]
+        for account in new_accounts:
+            entities.append(
+                FireflyAccountBalanceSensor(coordinator, account, ACCOUNT_BALANCE)
             )
-        )
-        entities.append(
-            FireflySubscriptionLastPaidSensor(
-                coordinator, bill, SUBSCRIPTION_LAST_PAID
+            known_account_ids.add(account.id)
+
+        new_categories = [
+            category
+            for category in coordinator.data.category_details.values()
+            if category.id not in known_category_ids
+        ]
+        for category in new_categories:
+            entities.append(FireflyCategorySensor(coordinator, category, CATEGORY))
+            known_category_ids.add(category.id)
+
+        new_budgets = [
+            budget
+            for budget in coordinator.data.budgets.values()
+            if budget.id not in known_budget_ids
+        ]
+        for budget in new_budgets:
+            entities.append(FireflyBudgetSpentSensor(coordinator, budget, BUDGET))
+            entities.append(
+                FireflyBudgetLimitSensor(coordinator, budget, BUDGET_LIMIT)
             )
-        )
+            entities.append(
+                FireflyBudgetRemainingSensor(coordinator, budget, BUDGET_REMAINING)
+            )
+            known_budget_ids.add(budget.id)
 
-    entities.append(
-        FireflySubscriptionTotalExpectedSensor(coordinator, SUBSCRIPTION_TOTAL_EXPECTED)
-    )
-    entities.append(
-        FireflySubscriptionAlreadyPaidSensor(coordinator, SUBSCRIPTION_ALREADY_PAID)
-    )
+        new_bills = [
+            bill
+            for bill in coordinator.data.bills.values()
+            if bill.id not in known_bill_ids
+        ]
+        for bill in new_bills:
+            entities.append(
+                FireflySubscriptionAmountSensor(coordinator, bill, SUBSCRIPTION_AMOUNT)
+            )
+            entities.append(
+                FireflySubscriptionNextExpectedSensor(
+                    coordinator, bill, SUBSCRIPTION_NEXT_EXPECTED
+                )
+            )
+            entities.append(
+                FireflySubscriptionLastPaidSensor(
+                    coordinator, bill, SUBSCRIPTION_LAST_PAID
+                )
+            )
+            known_bill_ids.add(bill.id)
 
-    async_add_entities(entities)
+        if entities:
+            async_add_entities(entities)
+
+    _async_add_new_entities()
+    async_add_entities(
+        [
+            FireflySubscriptionTotalExpectedSensor(
+                coordinator, SUBSCRIPTION_TOTAL_EXPECTED
+            ),
+            FireflySubscriptionAlreadyPaidSensor(
+                coordinator, SUBSCRIPTION_ALREADY_PAID
+            ),
+        ]
+    )
+    entry.async_on_unload(coordinator.async_add_listener(_async_add_new_entities))
 
 
 class FireflyAccountBalanceSensor(FireflyAccountBaseEntity, SensorEntity):

@@ -5,7 +5,7 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![GitHub Release](https://img.shields.io/github/v/release/Passific/ha-firefly-iii)](https://github.com/Passific/ha-firefly-iii/releases)
 [![License](https://img.shields.io/github/license/Passific/ha-firefly-iii)](LICENSE)
-[![Validate](https://github.com/Passific/ha-firefly-iii/actions/workflows/validate.yaml/badge.svg)](https://github.com/Passific/ha-firefly-iii/actions/workflows/validate.yaml)
+[![Validate](https://github.com/Passific/ha-firefly-iii/actions/workflows/ci.yml/badge.svg)](https://github.com/Passific/ha-firefly-iii/actions/workflows/ci.yml)
 
 A Home Assistant custom integration that connects to your [Firefly III](https://www.firefly-iii.org/) instance and exposes your accounts, budgets, categories and subscriptions as sensors.
 
@@ -57,6 +57,62 @@ Configuration is done entirely through the Home Assistant UI.
 ## Removal
 
 Remove the integration from **Settings > Devices & Services**, then (optionally) delete the `custom_components/firefly_iii` folder from your Home Assistant configuration directory. Once the folder is removed and Home Assistant is restarted, the core `firefly_iii` integration (if available in your version) will be used instead.
+
+## Supported devices and functions
+
+This integration talks to a single Firefly III instance (self-hosted or hosted) over its REST API using a personal access token. There is no physical device involved — one config entry represents one Firefly III instance, grouped into four logical devices: **Accounts**, **Categories**, **Budgets** and **Subscriptions**.
+
+For each item Firefly III reports, the integration creates:
+
+| Firefly III object | Entities created |
+| ------------------- | ----------------- |
+| Asset account | Current balance sensor |
+| Category | Net earned/spent sensor (current month) |
+| Budget | Spent, limit and remaining sensors (current month) |
+| Bill / subscription | Expected amount, next expected date, last paid date |
+| _(aggregate)_ | Total expected and already-paid across all active subscriptions |
+
+New accounts, categories, budgets and bills created in Firefly III are picked up automatically on the next refresh — no reload is required.
+
+## Data updates
+
+Data is polled every 5 minutes via the Firefly III REST API. There is currently no push/webhook mechanism, so changes made in Firefly III can take up to 5 minutes to appear in Home Assistant.
+
+## Use cases
+
+- Track account balances and net worth on a Home Assistant dashboard.
+- Get notified (via automations) when a budget is close to its limit or a subscription is about to be charged.
+- Combine with the Energy dashboard or custom cards to visualize monthly spending trends.
+
+## Examples
+
+A simple automation that notifies when a budget is nearly exhausted:
+
+```yaml
+automation:
+  - alias: "Notify when grocery budget is almost spent"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.budgets_groceries_remaining
+        below: 20
+    action:
+      - service: notify.mobile_app
+        data:
+          message: "Groceries budget has less than 20 left this month."
+```
+
+## Known limitations
+
+- Only asset accounts are exposed as balance sensors; expense/revenue/liability accounts are not currently supported.
+- Budget/category/subscription figures are always scoped to the current calendar month.
+- There is no way to trigger an immediate refresh from the Firefly III side (no webhooks); Home Assistant always polls.
+
+## Troubleshooting
+
+- **"Failed to connect" during setup**: verify the URL is reachable from Home Assistant and includes the scheme (`https://...`). If using a self-signed certificate, try disabling "Verify SSL".
+- **"Invalid authentication"**: the personal access token is wrong, expired, or was revoked — generate a new one in Firefly III under **Options > Remote access and tokens** and use the reauthentication flow.
+- **Entities show as unavailable**: check **Settings > Devices & Services > Firefly III** for repair/error notifications, and review the Home Assistant logs for the `custom_components.firefly_iii` logger.
+- **Diagnostics**: you can download config entry diagnostics from **Settings > Devices & Services > Firefly III > ⋮ > Download diagnostics** to help with bug reports (sensitive data such as the URL and token are redacted).
 
 ## Contributing
 
