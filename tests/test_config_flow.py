@@ -1,6 +1,6 @@
 """Tests for the Firefly III config flow."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from pyfirefly import (
     FireflyAuthenticationError,
@@ -11,107 +11,249 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.firefly_iii.const import DOMAIN
-from homeassistant import config_entries
+from homeassistant.config_entries import SOURCE_USER
 from homeassistant.const import CONF_API_KEY, CONF_URL, CONF_VERIFY_SSL
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
-USER_INPUT = {
-    CONF_URL: "https://firefly.example.com",
+from .conftest import MOCK_TEST_CONFIG
+
+USER_INPUT_RECONFIGURE = {
+    CONF_URL: "https://new_domain:9000/",
+    CONF_API_KEY: "new_api_key",
     CONF_VERIFY_SSL: True,
-    CONF_API_KEY: "test-token",
 }
 
 
-def _patch_firefly(side_effect=None):
-    """Patch the pyfirefly client used by the config flow."""
-    client = AsyncMock()
-    if side_effect is not None:
-        client.get_about.side_effect = side_effect
-    return patch(
-        "custom_components.firefly_iii.config_flow.Firefly", return_value=client
-    )
-
-
-async def test_user_flow_success(hass: HomeAssistant, mock_setup_entry) -> None:
-    """A valid URL and token creates a config entry."""
+@pytest.mark.usefixtures("mock_setup_entry")
+async def test_form_and_flow(
+    hass: HomeAssistant, mock_firefly_client: MagicMock
+) -> None:
+    """Test we get the form and can complete the flow."""
     result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER}
+        DOMAIN, context={"source": SOURCE_USER}
     )
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "user"
 
-    with _patch_firefly():
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], USER_INPUT
-        )
-        await hass.async_block_till_done()
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input=MOCK_TEST_CONFIG
+    )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == USER_INPUT[CONF_URL]
-    assert result["data"] == USER_INPUT
+    assert result["title"] == MOCK_TEST_CONFIG[CONF_URL]
+    assert result["data"] == MOCK_TEST_CONFIG
 
 
 @pytest.mark.parametrize(
-    ("exception", "expected_error"),
+    ("exception", "reason"),
     [
-        (FireflyConnectionError, "cannot_connect"),
         (FireflyAuthenticationError, "invalid_auth"),
+        (FireflyConnectionError, "cannot_connect"),
         (FireflyTimeoutError, "timeout_connect"),
-        (ValueError, "unknown"),
+        (Exception("Some other error"), "unknown"),
     ],
 )
-async def test_user_flow_errors(
-    hass: HomeAssistant, exception: type[Exception], expected_error: str
+@pytest.mark.usefixtures("mock_setup_entry")
+async def test_form_exceptions(
+    hass: HomeAssistant,
+    mock_firefly_client: AsyncMock,
+    exception: Exception,
+    reason: str,
 ) -> None:
-    """Errors raised while validating input surface as form errors."""
+    """Test we handle all exceptions and can recover afterwards."""
+    mock_firefly_client.get_about.side_effect = exception
+
     result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER}
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input=MOCK_TEST_CONFIG
     )
 
-    with _patch_firefly(side_effect=exception()):
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], USER_INPUT
-        )
-
     assert result["type"] is FlowResultType.FORM
-    assert result["errors"] == {"base": expected_error}
+    assert result["errors"] == {"base": reason}
+
+    mock_firefly_client.get_about.side_effect = None
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input=MOCK_TEST_CONFIG
+    )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"] == MOCK_TEST_CONFIG
 
 
-async def test_reauth_flow_success(hass: HomeAssistant, mock_setup_entry) -> None:
-    """A successful reauth updates the existing config entry's token."""
-    entry = MockConfigEntry(domain=DOMAIN, data=USER_INPUT, unique_id=None)
-    entry.add_to_hass(hass)
+async def test_duplicate_entry(
+    hass: HomeAssistant,
+    mock_firefly_client: AsyncMock,
+    mock_config_entry: MockConfigEntry,
+) -> None:
+    """Test we handle duplicate entries by URL."""
+    mock_config_entry.add_to_hass(hass)
 
-    result = await entry.start_reauth_flow(hass)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input=MOCK_TEST_CONFIG
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+
+
+async def test_full_flow_reauth(
+    hass: HomeAssistant,
+    mock_firefly_client: AsyncMock,
+    mock_setup_entry: MagicMock,
+    mock_config_entry: MockConfigEntry,
+) -> None:
+    """Test the reauth flow updates the token on the existing entry."""
+    mock_config_entry.add_to_hass(hass)
+
+    result = await mock_config_entry.start_reauth_flow(hass)
+    assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "reauth_confirm"
 
-    with _patch_firefly():
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {CONF_API_KEY: "new-token"}
-        )
-        await hass.async_block_till_done()
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_API_KEY: "new_api_key"}
+    )
 
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reauth_successful"
-    assert entry.data[CONF_API_KEY] == "new-token"
+    assert mock_config_entry.data[CONF_API_KEY] == "new_api_key"
+    assert len(mock_setup_entry.mock_calls) == 1
 
 
-async def test_reconfigure_flow_success(hass: HomeAssistant, mock_setup_entry) -> None:
-    """A successful reconfigure updates the existing config entry."""
-    entry = MockConfigEntry(domain=DOMAIN, data=USER_INPUT, unique_id=None)
-    entry.add_to_hass(hass)
+@pytest.mark.parametrize(
+    ("exception", "reason"),
+    [
+        (FireflyAuthenticationError, "invalid_auth"),
+        (FireflyConnectionError, "cannot_connect"),
+        (FireflyTimeoutError, "timeout_connect"),
+        (Exception("Some other error"), "unknown"),
+    ],
+)
+async def test_reauth_flow_exceptions(
+    hass: HomeAssistant,
+    mock_firefly_client: AsyncMock,
+    mock_setup_entry: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    exception: Exception,
+    reason: str,
+) -> None:
+    """Test we handle all exceptions in the reauth flow, and can recover."""
+    mock_config_entry.add_to_hass(hass)
+    mock_firefly_client.get_about.side_effect = exception
 
-    result = await entry.start_reconfigure_flow(hass)
+    result = await mock_config_entry.start_reauth_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_API_KEY: "new_api_key"}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": reason}
+
+    mock_firefly_client.get_about.side_effect = None
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_API_KEY: "new_api_key"}
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reauth_successful"
+    assert mock_config_entry.data[CONF_API_KEY] == "new_api_key"
+    assert len(mock_setup_entry.mock_calls) == 1
+
+
+async def test_full_flow_reconfigure(
+    hass: HomeAssistant,
+    mock_firefly_client: AsyncMock,
+    mock_setup_entry: MagicMock,
+    mock_config_entry: MockConfigEntry,
+) -> None:
+    """Test the reconfigure flow updates the existing entry."""
+    mock_config_entry.add_to_hass(hass)
+
+    result = await mock_config_entry.start_reconfigure_flow(hass)
+    assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "reconfigure"
 
-    new_input = {**USER_INPUT, CONF_URL: "https://new.example.com"}
-    with _patch_firefly():
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], new_input
-        )
-        await hass.async_block_till_done()
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input=USER_INPUT_RECONFIGURE
+    )
 
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reconfigure_successful"
-    assert entry.data[CONF_URL] == "https://new.example.com"
+    assert mock_config_entry.data[CONF_API_KEY] == "new_api_key"
+    assert mock_config_entry.data[CONF_URL] == "https://new_domain:9000/"
+    assert len(mock_setup_entry.mock_calls) == 1
+
+
+@pytest.mark.usefixtures("mock_setup_entry")
+async def test_full_flow_reconfigure_duplicate(
+    hass: HomeAssistant,
+    mock_firefly_client: AsyncMock,
+    mock_config_entry: MockConfigEntry,
+) -> None:
+    """Test reconfiguring to a URL that is already used by another entry aborts."""
+    mock_config_entry.add_to_hass(hass)
+    duplicate_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_URL: "https://duplicate-url/",
+            CONF_API_KEY: "other_key",
+            CONF_VERIFY_SSL: True,
+        },
+    )
+    duplicate_entry.add_to_hass(hass)
+
+    result = await mock_config_entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_URL: "https://duplicate-url/",
+            CONF_API_KEY: "new_key",
+            CONF_VERIFY_SSL: True,
+        },
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+
+
+@pytest.mark.parametrize(
+    ("exception", "reason"),
+    [
+        (FireflyAuthenticationError, "invalid_auth"),
+        (FireflyConnectionError, "cannot_connect"),
+        (FireflyTimeoutError, "timeout_connect"),
+        (Exception("Some other error"), "unknown"),
+    ],
+)
+async def test_full_flow_reconfigure_exceptions(
+    hass: HomeAssistant,
+    mock_firefly_client: AsyncMock,
+    mock_setup_entry: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    exception: Exception,
+    reason: str,
+) -> None:
+    """Test the reconfigure flow surfaces errors and can recover afterwards."""
+    mock_config_entry.add_to_hass(hass)
+    result = await mock_config_entry.start_reconfigure_flow(hass)
+
+    mock_firefly_client.get_about.side_effect = exception
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input=USER_INPUT_RECONFIGURE
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": reason}
+
+    mock_firefly_client.get_about.side_effect = None
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input=USER_INPUT_RECONFIGURE
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert mock_config_entry.data[CONF_URL] == "https://new_domain:9000/"
+    assert len(mock_setup_entry.mock_calls) == 1
