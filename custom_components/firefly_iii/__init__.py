@@ -118,7 +118,7 @@ def _async_migrate_entity_devices(
         device = device_registry.async_get_or_create(
             config_entry_id=entry.entry_id,
             configuration_url=entry.data[CONF_URL],
-            default_name=name,
+            name=name,
             entry_type=DeviceEntryType.SERVICE,
             identifiers={(DOMAIN, f"{entry.entry_id}_{identifier}")},
             manufacturer=MANUFACTURER,
