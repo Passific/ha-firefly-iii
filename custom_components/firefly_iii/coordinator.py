@@ -109,7 +109,11 @@ class FireflyDataUpdateCoordinator(DataUpdateCoordinator[FireflyCoordinatorData]
         """Fetch data from Firefly III API."""
         now = dt_util.now()
         start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        end_date = now
+        if start_date.month == 12:
+            next_month = start_date.replace(year=start_date.year + 1, month=1)
+        else:
+            next_month = start_date.replace(month=start_date.month + 1)
+        end_date = next_month - timedelta(days=1)
 
         try:
             (
