@@ -32,6 +32,17 @@ def _find_entity_id(
     raise AssertionError(f"No entity found with unique_id suffix {unique_id_suffix!r}")
 
 
+def _get_device_by_identifier(
+    device_registry: dr.DeviceRegistry, entry_id: str, identifier: str
+) -> dr.DeviceEntry | None:
+    """Look up a device, supporting both old and new device_registry APIs."""
+    if hasattr(device_registry, "async_get_device_by_identifier"):
+        return device_registry.async_get_device_by_identifier(
+            (DOMAIN, identifier), entry_id
+        )
+    return device_registry.async_get_device(identifiers={(DOMAIN, identifier)})
+
+
 @pytest.mark.usefixtures("mock_firefly_client")
 async def test_all_entities_created(
     hass: HomeAssistant,
@@ -73,9 +84,10 @@ async def test_entities_are_grouped_by_firefly_object(
         "subscriptions": "_bill_2_subscription_amount",
     }
     for group, unique_id_suffix in group_identifiers.items():
-        device = device_registry.async_get_device_by_identifier(
-            (DOMAIN, f"{mock_config_entry.entry_id}_{group}"),
+        device = _get_device_by_identifier(
+            device_registry,
             mock_config_entry.entry_id,
+            f"{mock_config_entry.entry_id}_{group}",
         )
         assert device is not None
         entity_id = _find_entity_id(
@@ -85,9 +97,10 @@ async def test_entities_are_grouped_by_firefly_object(
         assert entity_entry is not None
         assert entity_entry.device_id == device.id
 
-    subscriptions_device = device_registry.async_get_device_by_identifier(
-        (DOMAIN, f"{mock_config_entry.entry_id}_subscriptions"),
+    subscriptions_device = _get_device_by_identifier(
+        device_registry,
         mock_config_entry.entry_id,
+        f"{mock_config_entry.entry_id}_subscriptions",
     )
     assert subscriptions_device is not None
     aggregate_suffixes = (
