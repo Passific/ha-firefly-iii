@@ -73,8 +73,9 @@ async def test_entities_are_grouped_by_firefly_object(
         "subscriptions": "_bill_2_subscription_amount",
     }
     for group, unique_id_suffix in group_identifiers.items():
-        device = device_registry.async_get_device(
-            identifiers={(DOMAIN, f"{mock_config_entry.entry_id}_{group}")}
+        device = device_registry.async_get_device_by_identifier(
+            (DOMAIN, f"{mock_config_entry.entry_id}_{group}"),
+            mock_config_entry.entry_id,
         )
         assert device is not None
         entity_id = _find_entity_id(
@@ -84,8 +85,9 @@ async def test_entities_are_grouped_by_firefly_object(
         assert entity_entry is not None
         assert entity_entry.device_id == device.id
 
-    subscriptions_device = device_registry.async_get_device(
-        identifiers={(DOMAIN, f"{mock_config_entry.entry_id}_subscriptions")}
+    subscriptions_device = device_registry.async_get_device_by_identifier(
+        (DOMAIN, f"{mock_config_entry.entry_id}_subscriptions"),
+        mock_config_entry.entry_id,
     )
     assert subscriptions_device is not None
     aggregate_suffixes = (

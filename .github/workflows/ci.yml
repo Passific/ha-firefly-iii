@@ -30,8 +30,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install pytest pytest-asyncio pytest-homeassistant-custom-component
-          pip install pyfirefly
+          pip install -r requirements-test.txt
 
       - name: Run tests
         run: pytest --tb=short -q
