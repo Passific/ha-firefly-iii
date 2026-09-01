@@ -1,13 +1,13 @@
 name: Draft release
 
 on:
-  push:
-    tags:
-      - "v*"
+  release:
+    types:
+      - created
 
 jobs:
   draft-release:
-    name: Create draft release with changelog
+    name: Fill in release notes from commits
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -16,18 +16,25 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          ref: ${{ github.event.release.target_commitish }}
 
-      - name: Generate changelog and create/update draft release
+      - name: Generate changelog and update release notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          current_tag="${GITHUB_REF#refs/tags/}"
-          previous_tag=$(git describe --tags --abbrev=0 "${current_tag}^" 2>/dev/null || true)
+          current_tag="${{ github.event.release.tag_name }}"
+          current_ref="${{ github.event.release.target_commitish }}"
+          [ -z "$current_ref" ] && current_ref="HEAD"
+
+          # The tag may not exist yet (e.g. a draft release with a new tag,
+          # which GitHub only creates on publish), so sort existing tags
+          # instead of relying on the new tag being present.
+          previous_tag=$(git tag --sort=-v:refname | grep -v "^${current_tag}$" | head -n1 || true)
 
           if [ -n "$previous_tag" ]; then
-            range="${previous_tag}..${current_tag}"
+            range="${previous_tag}..${current_ref}"
           else
-            range="$current_tag"
+            range="$current_ref"
           fi
 
           # Order defines both category precedence and output order.
@@ -103,9 +110,5 @@ jobs:
           done
           [ -z "$notes" ] && notes="- No changes recorded"
 
-          if gh release view "$current_tag" >/dev/null 2>&1; then
-            gh release edit "$current_tag" --notes "$notes"
-          else
-            gh release create "$current_tag" --draft --title "$current_tag" --notes "$notes"
-          fi
+          gh release edit "$current_tag" --notes "$notes"
 
