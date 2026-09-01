@@ -115,6 +115,11 @@ jobs:
           done
           [ -z "$notes" ] && notes="- No changes recorded"
 
+          existing_notes=$(gh release view "$current_tag" --json body --jq .body)
+          if [ -n "$existing_notes" ]; then
+            notes="${existing_notes}"$'\n\n'"${notes}"
+          fi
+
           gh release edit "$current_tag" --notes "$notes"
 
       - name: Upload zip to release
