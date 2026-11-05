@@ -1,6 +1,7 @@
 {
   "domain": "firefly_iii",
   "name": "Firefly III",
+  "categories": ["finance"],
   "codeowners": ["@Passific"],
   "config_flow": true,
   "documentation": "https://github.com/Passific/ha-firefly-iii",
