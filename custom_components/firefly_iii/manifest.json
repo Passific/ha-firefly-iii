@@ -8,6 +8,6 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/Passific/ha-firefly-iii/issues",
   "quality_scale": "platinum",
-  "requirements": ["pyfirefly==0.1.17"],
+  "requirements": ["pyfirefly>=0.1.17"],
   "version": "0.1.0"
 }
