@@ -2,8 +2,9 @@
 
 <img src="https://brands.home-assistant.io/_/firefly_iii/icon.png" alt="Firefly III icon" width="96" height="96" align="right">
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
-[![GitHub Release](https://img.shields.io/github/v/release/Passific/ha-firefly-iii)](https://github.com/Passific/ha-firefly-iii/releases)
+[![Marketplace](https://img.shields.io/badge/Marketplace-Custom-41BDF5.svg)](https://www.home-assistant.io/integrations/marketplace/)
+[![Release](https://img.shields.io/github/v/release/Passific/ha-firefly-iii)](https://github.com/Passific/ha-firefly-iii/releases)
+[![Downloads](https://img.shields.io/github/downloads/passific/ha-firefly-iii/total)](https://github.com/Passific/ha-firefly-iii/releases)
 [![License](https://img.shields.io/github/license/Passific/ha-firefly-iii)](LICENSE)
 [![Validate](https://github.com/Passific/ha-firefly-iii/actions/workflows/ci.yml/badge.svg)](https://github.com/Passific/ha-firefly-iii/actions/workflows/ci.yml)
 
@@ -23,15 +24,15 @@ A Home Assistant custom integration that connects to your [Firefly III](https://
 
 ## Installation
 
-### HACS (recommended)
+### Marketplace (recommended)
 
-1. Make sure [HACS](https://hacs.xyz/) is installed.
-2. Go to **HACS > Integrations > ⋮ > Custom repositories**.
-3. Add `https://github.com/Passific/ha-firefly-iii` as an **Integration** repository.
-4. Search for **Firefly III** in HACS and install it.
-5. Restart Home Assistant.
+1. Go to **Settings > Marketplace**.
+2. In the upper-right corner, select **Add from link**.
+3. Add `https://github.com/Passific/ha-firefly-iii` under **GitHub link**.
+4. Select **Add**.
+5. Search for **Firefly III** in the Marketplace and install it.
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Passific&repository=ha-firefly-iii&category=integration)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=Passific&repository=ha-firefly-iii&category=integration)
 
 ### Manual
 
@@ -56,7 +57,11 @@ Configuration is done entirely through the Home Assistant UI.
 
 ## Removal
 
-Remove the integration from **Settings > Devices & Services**, then (optionally) delete the `custom_components/firefly_iii` folder from your Home Assistant configuration directory. Once the folder is removed and Home Assistant is restarted, the core `firefly_iii` integration (if available in your version) will be used instead.
+1. Go to **Settings > Marketplace**.
+2. Open the page of the repository.
+3. Select the three dots ⋮ menu in the upper-right corner, then select **Uninstall**.
+   - If the integration is still configured, select **View integration** to remove the integration setup yourself, or **Delete and uninstall** to remove the setup and uninstall the integration in one step.
+4. Confirm.
 
 ## Supported devices and functions
 
@@ -70,7 +75,7 @@ For each item Firefly III reports, the integration creates:
 | Category | Net earned/spent sensor (current month) |
 | Budget | Spent, limit and remaining sensors (current month) |
 | Bill / subscription | Expected amount, next expected date, last paid date |
-| _(aggregate)_ | Total expected and already-paid across all active subscriptions |
+| _(aggregate)_ | Total expected and already-paid across all active subscriptions (current month) |
 
 New accounts, categories, budgets and bills created in Firefly III are picked up automatically on the next refresh — no reload is required.
 
