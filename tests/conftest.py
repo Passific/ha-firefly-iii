@@ -15,12 +15,10 @@ from pyfirefly.models import (
     Currency,
 )
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.firefly_iii.const import DOMAIN
 from homeassistant.const import CONF_API_KEY, CONF_URL, CONF_VERIFY_SSL
-
-pytest_plugins = "pytest_homeassistant_custom_component"
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -34,12 +32,6 @@ MOCK_TEST_CONFIG = {
 def _load_fixture(filename: str):
     """Load a JSON fixture from the tests/fixtures directory."""
     return json.loads((FIXTURES_DIR / filename).read_text(encoding="utf-8"))
-
-
-@pytest.fixture(autouse=True)
-def auto_enable_custom_integrations(enable_custom_integrations):
-    """Enable custom integrations for every test."""
-    yield
 
 
 @pytest.fixture(name="mock_setup_entry")
